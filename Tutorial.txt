@@ -1,0 +1,199 @@
+XBuild - Shell-based Source Package Manager
+-------------------------------------------
+
+1. Estrutura de Diretórios
+--------------------------
+/tmp/xbuild/
+├─ src/          # Diretório de trabalho temporário para extrair e compilar pacotes
+├─ pkg/          # Staging para instalação antes de copiar para o sistema
+├─ bin/          # Pacotes binários empacotados (tar.xz) e assinaturas
+├─ log/          # Logs separados por categoria e pacote
+│   ├─ base/
+│   ├─ x11/
+│   ├─ desktop/
+│   ├─ wayland/
+│   └─ extra/
+└─ repo/         # Repositório de PKGINFO
+    ├─ base/
+    ├─ x11/
+    ├─ desktop/
+    ├─ wayland/
+    └─ extra/
+
+2. Comandos do XBuild
+---------------------
+b, build       → Preparar/compilar pacote (download, patch, compile, stage)
+i, install     → Instalar pacote do $PKG ou do binário $BIN
+p, package     → Empacotar staging em binário
+r, remove      → Remover pacote do sistema
+u, upgrade     → Atualizar pacote para nova versão
+s, search      → Procurar pacote instalado
+revdep         → Mostrar pacotes que dependem de outro
+sync           → Sincronizar repositório
+clean          → Limpar workdirs temporários
+
+3. Abreviações e Flags
+----------------------
+- b → build
+- i → install
+- p → package
+- r → remove
+- u → upgrade
+- s → search
+
+Opções especiais:
+--fetch        → Apenas baixar fontes
+--extract      → Apenas extrair
+--patch        → Apenas aplicar patches
+--no-compile   → Parar antes de compilar
+--keep-work    → Não limpar workdir
+--strip        → Strip binários
+--rebuild      → Recompilar mesmo se já existir
+--log-tail     → Mostrar log em tempo real
+
+4. Hooks Suportados
+-------------------
+PRE_BUILD       → Executado antes de compilar
+POST_BUILD      → Executado depois de compilar
+PRE_INSTALL     → Executado antes de instalar
+POST_INSTALL    → Executado depois de instalar
+PRE_REMOVE      → Executado antes de remover
+POST_REMOVE     → Executado depois de remover
+
+5. Fluxo de Build e Instalação
+------------------------------
+1) build_package:
+   - Ler PKGINFO
+   - Executar PRE_BUILD
+   - Baixar fontes (HTTP/Git)
+   - Validar SHA256
+   - Extrair para $SRC/<pkg>
+   - Aplicar PATCHES
+   - Configurar (./configure, cmake, etc.)
+   - Compilar (make/ninja)
+   - Instalar em staging $PKG/<pkg>
+   - Executar POST_BUILD
+   - Log em $LOG/<categoria>/<pkg>.log
+
+2) install_package:
+   - Checar se é grupo/metapacote
+   - Resolver dependências RUN_DEPENDS topologicamente
+   - Chamar build_package se não compilado
+   - Copiar arquivos do staging ($PKG) ou binário ($BIN) para o sistema
+   - Executar PRE_INSTALL / POST_INSTALL
+   - Suporte a --log-tail
+
+3) package_package:
+   - Empacotar staging em tar.xz no $BIN
+   - Gerar SHA256
+   - Assinar pacote (opcional)
+   - Registrar log
+
+4) remove_package:
+   - Executar PRE_REMOVE
+   - Remover arquivos do sistema
+   - Executar POST_REMOVE
+   - Remover dependências órfãs se necessário
+
+5) upgrade_package:
+   - Verificar versão nova
+   - Rebuild se necessário
+   - Instalar nova versão
+
+6) search_package:
+   - Mostrar [x] se instalado, [ ] se não
+   - Mostrar informações e dependências
+
+7) revdep_package:
+   - Mostrar pacotes que dependem de outro pacote
+
+8) sync_repo:
+   - Atualizar PKGINFO do Git ou mirrors
+   - Verificar integridade
+
+9) clean_workdirs:
+   - Limpar $SRC/* e $PKG/*
+   - Manter logs e binários
+
+6. Grupos / Metapacotes
+------------------------
+- base      → gcc, glibc, coreutils, bash, make, sed, grep, binutils, util-linux, shadow, procps
+- x11       → xorg-server, libX11, mesa, drivers
+- desktop   → gnome-shell, nautilus, gdm, evince, gedit
+- wayland   → wlroots, sway, wayland-protocols
+- extra     → firefox, steam, libreoffice, outros apps pesados
+
+Exemplo: instalar a base completa:
+xbuild i base --log-tail
+
+7. Exemplo PKGINFO Completo
+----------------------------
+$REPO/extra/firefox-116/PKGINFO
+
+NAME=firefox
+VERSION=116.0
+RELEASE=1
+CATEGORY=extra
+DESCRIPTION="Mozilla Firefox Web Browser"
+URL="https://www.mozilla.org/firefox/"
+
+SOURCES=(
+  "https://ftp.mozilla.org/pub/firefox/releases/116.0/source/firefox-116.0.source.tar.xz"
+  "git+https://github.com/mozilla/gecko-dev.git"
+)
+SHA256=(
+  "abc123...firefox.tar.xz"
+  "def456...gecko.git"
+)
+
+BUILD_DEPENDS=(
+  "gcc"
+  "make"
+  "python"
+  "rust"
+  "cargo"
+  "glibc"
+  "pkg-config"
+  "libX11"
+)
+RUN_DEPENDS=(
+  "glibc"
+  "gtk3"
+  "libstdc++"
+)
+
+PATCHES=("firefox-fix.patch")
+OPTIONS=("strip" "clean")
+
+PRE_BUILD="sh pre_build_firefox.sh"
+POST_BUILD="sh post_build_firefox.sh"
+PRE_INSTALL="sh pre_install_firefox.sh"
+POST_INSTALL="sh post_install_firefox.sh"
+PRE_REMOVE="sh pre_remove_firefox.sh"
+POST_REMOVE="sh post_remove_firefox.sh"
+
+FLAGS=("--rebuild" "--log-tail")
+
+8. Logs e Monitoramento
+------------------------
+- Cada pacote tem log: $LOG/<categoria>/<pacote>.log
+- Para acompanhar em tempo real:
+  tail -f $LOG/base/gcc-12.2.log
+- Para grupo/metapacote:
+  tail -f $LOG/base/*.log
+- Para sistema inteiro:
+  tail -f $LOG/**/*.log
+
+9. Dicas e Boas Práticas
+------------------------
+- Sempre definir SHA256 para todas as fontes
+- Usar hooks para automatizar tarefas complexas
+- Organizar pacotes em categorias
+- Usar grupos/metapacotes para instalar conjuntos inteiros
+- Utilizar --log-tail durante bootstrap de sistema
+- Limpar workdirs com clean para economizar espaço
+- Strip binários para reduzir tamanho final
+- Rebuild quando atualizar toolchain (gcc/glibc) para consistência
+
+-------------------------------------------
+Fim do Tutorial XBuild
