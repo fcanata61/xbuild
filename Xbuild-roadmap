@@ -1,0 +1,172 @@
+#!/bin/bash
+# XBuild - Commented Roadmap
+# Guia definitivo para implementação completa do gerenciador
+
+# -------------------------
+# CONFIGURAÇÃO GLOBAL
+# -------------------------
+LOG="/tmp/xbuild/log"     # Logs separados por categoria/pacote
+REPO="/tmp/xbuild/repo"   # Receitas / PKGINFO
+SRC="/tmp/xbuild/src"     # Diretórios de trabalho para extrair fontes
+PKG="/tmp/xbuild/pkg"     # Staging (pré-instalação)
+BIN="/tmp/xbuild/bin"     # Pacotes binários empacotados
+
+# -------------------------
+# FUNÇÕES PRINCIPAIS
+# -------------------------
+
+# 1️⃣ BUILD: Preparar/compilar pacote
+build_package() {
+    local pkg="$1"
+    shift
+    local options=("$@")
+
+    # a) Ler PKGINFO do pacote
+    # b) Executar PRE_BUILD hook
+    # c) Baixar fontes de SOURCES (HTTP, HTTPS, Git)
+    # d) Validar SHA256 das fontes
+    # e) Extrair em $SRC/$pkg
+    # f) Aplicar PATCHES
+    # g) Configurar (./configure ou equivalente)
+    # h) Compilar (make, ninja, cmake)
+    # i) Instalar em staging: make DESTDIR=$PKG/$pkg install
+    # j) Executar POST_BUILD hook
+    # k) Gerar logs em $LOG/<categoria>/<pkg>.log
+    echo "[BUILD] Preparando pacote: $pkg"
+}
+
+# 2️⃣ INSTALL: Instalar pacote
+install_package() {
+    local pkg="$1"
+    shift
+    local options=("$@")
+
+    # a) Checar se o pacote é um grupo/metapacote
+    # b) Se for grupo, instalar dependências do RUN_DEPENDS na ordem correta (topológica)
+    # c) Se não estiver compilado, chamar build_package
+    # d) Instalar do staging ($PKG) ou do binário ($BIN)
+    # e) Executar PRE_INSTALL hook
+    # f) Copiar arquivos para o sistema (/usr, /lib, /etc, etc.)
+    # g) Executar POST_INSTALL hook
+    # h) Suporte à flag --log-tail para mostrar log em tempo real
+    echo "[INSTALL] Instalando pacote: $pkg"
+}
+
+# 3️⃣ PACKAGE: Empacotar staging em binário
+package_package() {
+    local pkg="$1"
+    shift
+    local options=("$@")
+
+    # a) Criar tarball em $BIN/<categoria>/<pkg>-<version>.pkg.tar.xz
+    # b) Gerar SHA256 do pacote
+    # c) Gerar assinatura GPG (opcional)
+    # d) Registrar logs
+    echo "[PACKAGE] Empacotando: $pkg"
+}
+
+# 4️⃣ REMOVE: Remover pacote
+remove_package() {
+    local pkg="$1"
+    shift
+    local options=("$@")
+
+    # a) Executar PRE_REMOVE hook
+    # b) Remover arquivos do sistema
+    # c) Executar POST_REMOVE hook
+    # d) Atualizar logs e banco de pacotes instalados
+    # e) Remover dependências órfãs, se necessário
+    echo "[REMOVE] Removendo pacote: $pkg"
+}
+
+# 5️⃣ UPGRADE: Atualizar pacote
+upgrade_package() {
+    local pkg="$1"
+    shift
+    local options=("$@")
+
+    # a) Verificar nova versão em $REPO ou mirror remoto
+    # b) Baixar/compilar nova versão
+    # c) Atualizar pacote e substituir arquivos
+    # d) Executar hooks necessários
+    echo "[UPGRADE] Atualizando pacote: $pkg"
+}
+
+# 6️⃣ SEARCH: Procurar pacote instalado
+search_package() {
+    local pkg="$1"
+
+    # a) Checar registro de pacotes instalados
+    # b) Mostrar status [x] ou [ ]
+    # c) Mostrar informações do pacote
+    # d) Suporte a cores
+    echo "[SEARCH] Procurando pacote: $pkg"
+}
+
+# 7️⃣ REVDEP: Dependências reversas
+revdep_package() {
+    local pkg="$1"
+
+    # a) Listar pacotes que dependem de pkg
+    # b) Suporte a cores
+    echo "[REVDEP] Pacotes que dependem de: $pkg"
+}
+
+# 8️⃣ SYNC: Sincronizar repositório
+sync_repo() {
+    # a) Atualizar recipes do Git ou mirrors HTTP/HTTPS
+    # b) Verificar integridade
+    echo "[SYNC] Sincronizando repositório"
+}
+
+# 9️⃣ CLEAN: Limpar workdirs
+clean_workdirs() {
+    # a) Remover $SRC/* e $PKG/*
+    # b) Opcional: manter logs e binários
+    echo "[CLEAN] Limpando diretórios temporários"
+}
+
+# -------------------------
+# FLAGS GLOBAIS E OPÇÕES
+# -------------------------
+# --fetch        Apenas baixar fontes
+# --extract      Apenas extrair
+# --patch        Apenas aplicar patches
+# --no-compile   Parar antes de compilar
+# --keep-work    Não limpar workdir
+# --strip        Strip binários
+# --rebuild      Recompilar mesmo se já existir
+# --log-tail     Mostrar log em tempo real
+
+# -------------------------
+# PARSING DE ARGUMENTOS
+# -------------------------
+COMMAND="$1"
+PACKAGE="$2"
+shift 2
+OPTIONS=("$@")
+
+case "$COMMAND" in
+    b|build)    build_package "$PACKAGE" "${OPTIONS[@]}" ;;
+    i|install)  install_package "$PACKAGE" "${OPTIONS[@]}" ;;
+    p|package)  package_package "$PACKAGE" "${OPTIONS[@]}" ;;
+    r|remove)   remove_package "$PACKAGE" "${OPTIONS[@]}" ;;
+    u|upgrade)  upgrade_package "$PACKAGE" "${OPTIONS[@]}" ;;
+    s|search)   search_package "$PACKAGE" ;;
+    revdep)     revdep_package "$PACKAGE" ;;
+    sync)       sync_repo ;;
+    clean)      clean_workdirs ;;
+    *)          show_help ;;
+esac
+
+# -------------------------
+# NOTAS GERAIS
+# -------------------------
+# - Todas as funções devem chamar os hooks corretos (PRE/POST_BUILD, INSTALL, REMOVE)
+# - Logs separados por categoria/pacote em $LOG
+# - Grupos/metapacotes instalam RUN_DEPENDS automaticamente
+# - Empacotamento cria $BIN com SHA256 e assinatura opcional
+# - Suporte a rebuild, strip, fetch/extract/patch
+# - Dependências resolvidas topologicamente
+# - Remoção de órfãos e atualização de sistema completo
+# - Fluxo do sistema inteiro pode ser monitorado via --log-tail
