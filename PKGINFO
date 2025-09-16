@@ -1,0 +1,58 @@
+NAME=firefox
+VERSION=116.0
+RELEASE=1
+CATEGORY=extra
+DESCRIPTION="Mozilla Firefox Web Browser"
+URL="https://www.mozilla.org/firefox/"
+
+# Fontes: suporte a HTTP(S) e Git
+SOURCES=(
+  "https://ftp.mozilla.org/pub/firefox/releases/116.0/source/firefox-116.0.source.tar.xz"
+  "git+https://github.com/mozilla/gecko-dev.git"
+)
+SHA256=(
+  "abc123...firefox.tar.xz"
+  "def456...gecko.git"
+)
+
+# Dependências
+BUILD_DEPENDS=(
+  "gcc"
+  "make"
+  "python"
+  "rust"
+  "cargo"
+  "glibc"
+  "pkg-config"
+  "libX11"
+)
+RUN_DEPENDS=(
+  "glibc"
+  "gtk3"
+  "libstdc++"
+)
+
+# Patches opcionais
+PATCHES=(
+  "firefox-fix.patch"
+)
+
+# Opções extras
+OPTIONS=(
+  "strip"    # strip binários
+  "clean"    # limpar workdir após build
+)
+
+# Hooks opcionais
+PRE_BUILD="sh pre_build_firefox.sh"
+POST_BUILD="sh post_build_firefox.sh"
+PRE_INSTALL="sh pre_install_firefox.sh"
+POST_INSTALL="sh post_install_firefox.sh"
+PRE_REMOVE="sh pre_remove_firefox.sh"
+POST_REMOVE="sh post_remove_firefox.sh"
+
+# Flags de comportamento especial (interpretadas pelo XBuild)
+FLAGS=(
+  "--rebuild"
+  "--log-tail"
+)
